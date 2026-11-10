@@ -433,7 +433,7 @@ function vFood(q){
 }
 
 // ================= MATCH TOOL
-let MSEL = [], MOPT = {min:null, k:'', s:'', env:false, flv:false, rec:false, spv:false};
+let MSEL = [], MOPT = {min:null, k:'', t:'', s:'', env:false, flv:false, rec:false, spv:false};
 function prefSet(p){ const s = new Set(p.fv.map(f=>'f'+f)); if(MOPT.env&&p.env) s.add('e'+p.env); if(MOPT.flv&&p.flv) s.add('l'+p.flv); return s; }
 function vMatch(q){
   MSEL = (q.p||'').split(',').filter(x=>x!=='').map(Number).filter(x=>P[x]).slice(0,4);
@@ -509,12 +509,18 @@ function renderMatch(){
   ${favRows.length?`<div class="tw"><table><tr><th>類別</th><th>交集數</th><th>喜歡的寶可夢</th></tr>${favRows.map(([f,ks])=>`<tr><td>${keyChip(f, ks.length===n?'hit':'')}</td><td><span class="score ${ks.length===n?'full':''}">${ks.length}/${n}</span></td><td>${ks.map(k=>`<span class="mini sm">${pImg(sel[k],32,'')}${esc(sel[k].n)}</span>`).join('')}</td></tr>`).join('')}</table></div>`:'<p class="muted">所選寶可夢沒有共同喜歡的東西。</p>'}
   ${sel.some(p=>(p.dis||[]).length)?`<div class="warn" style="margin-top:10px">注意：${sel.filter(p=>(p.dis||[]).length).map(p=>`${pNmI(p)} 討厭「${p.dis.map(f=>esc(FAV[f])).join('、')}」`).join('；')}。下方帶有這些類別的道具會以紅色標示。</div>`:''}
   <h2>符合的道具（${scored.length} 件）</h2>
-  <div class="bar"><select id="mmin">${[...Array(n-1).keys()].map(k=>k+2).map(v=>`<option value="${v}" ${MOPT.min==v?'selected':''}>${v===n?`全員都喜歡（${n}/${n}）`:`至少 ${v} 隻喜歡`}</option>`).join('')}</select>
-  <input type="search" id="mfs" placeholder="篩選道具名稱…" value="${esc(MOPT.s)}"><label class="ck"><input type="checkbox" id="mnodis"> 排除被討厭的道具</label></div>
-  <div class="tabs" id="mtabs"><button data-k="" class="${MOPT.k===''?'on':''}">全部分類</button>${cats.map(k=>`<button data-k="${k}" class="${MOPT.k===k?'on':''}">${k}</button>`).join('')}</div>
+  <div class="frow"><span class="flab">類別</span><div class="tabs" id="mtabs"></div></div>
+  <div class="frow"><span class="flab">標籤</span><div class="tabs sub" id="mttabs"></div></div>
+  <div class="frow"><span class="flab">篩選</span><div class="bar"><select id="mmin">${[...Array(n-1).keys()].map(k=>k+2).map(v=>`<option value="${v}" ${MOPT.min==v?'selected':''}>${v===n?`全員都喜歡（${n}/${n}）`:`至少 ${v} 隻喜歡`}</option>`).join('')}</select>
+  <input type="search" id="mfs" placeholder="篩選道具名稱…" value="${esc(MOPT.s)}"><label class="ck"><input type="checkbox" id="mnodis"> 排除被討厭的道具</label></div></div>
   <div id="mlist"></div>`;
   const draw=()=>{ const min=Math.max(2,Math.min(+MOPT.min,n)); const nodis=$('#mnodis').checked;
-    const list=scored.filter(s=>s.who.length>=min && (!MOPT.k||I[s.i].k===MOPT.k) && (!MOPT.s||I[s.i].n.includes(MOPT.s)) && (!nodis||!s.dis.length));
+    const base=scored.filter(s=>s.who.length>=min && (!MOPT.s||I[s.i].n.includes(MOPT.s)) && (!nodis||!s.dis.length));
+    const ck={}; base.forEach(s=>ck[I[s.i].k]=(ck[I[s.i].k]||0)+1); if(MOPT.k&&!ck[MOPT.k]) MOPT.k='';
+    const inK=base.filter(s=>!MOPT.k||I[s.i].k===MOPT.k); const ct={}; inK.forEach(s=>{const x=I[s.i].t||'_'; ct[x]=(ct[x]||0)+1;}); if(MOPT.t&&!ct[MOPT.t]) MOPT.t='';
+    $('#mtabs').innerHTML=`<button data-k="" class="${MOPT.k===''?'on':''}">全部（${base.length}）</button>${MCAT.map(k=>`<button data-k="${k}" class="${MOPT.k===k?'on':''}" ${ck[k]?'':'disabled'}>${k}（${ck[k]||0}）</button>`).join('')}`;
+    $('#mttabs').innerHTML=`<button data-t="" class="${!MOPT.t?'on':''}">全部（${inK.length}）</button>${ITAG.map(x=>`<button data-t="${x}" class="${MOPT.t===x?'on':''}" ${ct[x]?'':'disabled'}>${x==='_'?'無標籤':esc(x)}（${ct[x]||0}）</button>`).join('')}`;
+    const list=inK.filter(s=>!MOPT.t||(MOPT.t==='_'?!I[s.i].t:I[s.i].t===MOPT.t));
     const by={}; list.forEach(s=>(by[I[s.i].k] ||= []).push(s));
     $('#mlist').innerHTML = MCAT.filter(k=>by[k]).map(k=>`<h3>${k}（${by[k].length}）</h3><div class="mres">${by[k].map(s=>{const it=I[s.i]; const ks=itemKeys(it);
       return `<div class="mitem">${iLink(s.i, iImg(it,48))}<div style="flex:1;min-width:0"><div class="row"><span class="score ${s.who.length===n?'full':''}">${s.who.length}/${n}</span>${iLink(s.i,`<span class="nm">${esc(it.n)}</span>`)}${it.t?`<span class="small muted">${esc(it.t)}</span>`:''}</div>
@@ -523,7 +529,8 @@ function renderMatch(){
   $('#mmin').addEventListener('input',e=>{MOPT.min=+e.target.value; draw();});
   $('#mfs').addEventListener('input',e=>{MOPT.s=e.target.value.trim(); draw();});
   $('#mnodis').addEventListener('input',draw);
-  $('#mtabs').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; MOPT.k=b.dataset.k; [...$('#mtabs').children].forEach(x=>x.classList.toggle('on',x===b)); draw();});
+  $('#mtabs').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b||b.disabled) return; MOPT.k=b.dataset.k; draw();});
+  $('#mttabs').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b||b.disabled) return; MOPT.t=b.dataset.t; draw();});
   draw();
 }
 
