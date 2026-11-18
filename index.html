@@ -82,6 +82,7 @@ footer{max-width:1280px;margin:0 auto;padding:0 16px 30px;color:var(--mute);font
 .towns{display:inline-flex;flex-wrap:wrap;gap:2px;justify-content:center;margin-top:3px}.tw2{font-size:11px;padding:0 5px;border-radius:5px;background:#eee;color:#aaa}.tw2.on{background:#e5dcf7;color:#4b3a85;font-weight:700}.lim{color:#b0531c}
 .frow{display:flex;gap:8px;align-items:flex-start}.frow>.flab{flex:none;width:3em;font-size:13px;font-weight:700;color:var(--muted,#7a7a6a);padding-top:6px;text-align:right}.frow>div{flex:1;min-width:0}.tabs.sub{margin-top:0}.tabs button:disabled{opacity:.4;cursor:not-allowed;background:#f3f1ea}.tabs.sub button{font-size:12px;padding:3px 10px}
 .chip.swf{background:#d9f0fb;border-color:#a9d8ef;color:#1d5f80}.chip.sww{background:#efe8d8;border-color:#d8c9a6;color:#6b5320}
+.litp{display:inline-flex;border-radius:10px;padding:1px 3px}.litp.hl{animation:hlp .7s ease-in-out 2}tr.hlrow>td{background:#fff8e6}@keyframes hlp{0%,100%{box-shadow:0 0 0 0 transparent}50%{box-shadow:0 0 0 3px #f0a531}}
 .vt{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}.vt button{border:0;background:#fff;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}.vt button.on{background:var(--green);color:#fff}
 th.sort{cursor:pointer;user-select:none;white-space:nowrap}th.sort:hover{background:#e6dbbd}th.sort .ar{color:#a08f62;font-size:11px;margin-left:3px}
 .craft{display:inline-block;background:#f3eefc;border:1px solid #dacff3;color:#55408f;border-radius:8px;padding:1px 7px;font-size:12px;margin:2px 0}.craft b{color:#3d2a7a}
@@ -236,7 +237,7 @@ function vPokemon(i){
     <div class="chips">${p.t.map(typeTag).join(' ')}</div><a class="btn pri" href="#/match?p=${i}&rec=1">推薦喜好相近的室友 →</a></div>
   <div class="panel"><dl class="kv">
     <dt>圖鑑</dt><dd>${SECN[p.s]}${p.loc?`　<span class="muted small">主要地點：${esc(p.loc)}</span>`:''}</dd>
-    <dt>專長</dt><dd><div class="chips l">${p.sp.map(spChip).join('')}</div></dd>
+    <dt>專長</dt><dd><div class="chips l">${p.sp.map(s=>s==='亂撒'?spChip(s).replace(`href="#/sp/${SPIX[s]}"`,`href="#/sp/${SPIX[s]}?p=${i}"`).replace('看「亂撒」專長介紹','看牠亂撒會掉落的物品'):spChip(s)).join('')}</div></dd>
     <dt>理想環境</dt><dd>${envChip(p.env)||'—'}</dd>
     <dt>水中行動</dt><dd>${swChip(p)} <span class="small muted">（冒泡泡海底的城鎮）</span></dd>
     <dt>喜歡的口味</dt><dd>${flvChip(p.flv)||'—'}</dd>
@@ -366,10 +367,10 @@ function vSpList(){
   <h2>一般專長（${common.length} 種）</h2><div class="spgrid">${common.map(([x,k])=>card(x,k)).join('')}</div>
   <h2>特殊專長（${rare.length} 種，多為特定角色寶可夢）</h2><div class="spgrid">${rare.map(([x,k])=>card(x,k)).join('')}</div>`;
 }
-function vSp(k){
+function vSp(k,q={}){
   k=+k; const x=SPI[k]; if(!x) return vNotFound();
   const ps = SPP[x.n]||[]; const prev=SPI[k-1], next=SPI[k+1];
-  const lit = x.lit ? `<h2>亂撒會掉落的物品</h2><div class="tw"><table><tr><th>物品</th><th>會掉落的寶可夢</th></tr>${x.lit.map(([ii,n,ps])=>`<tr><td>${ii>=0?iLink(ii,`<span class="mini">${iImg(I[ii],32,'')}${esc(n)}</span>`):esc(n)}</td><td><div class="row">${ps.map(([j,pn])=>j>=0?pLink(j,`<span class="mini">${pImg(P[j],32,'')}${pNm(P[j])}</span>`):esc(pn)).join('')}</div></td></tr>`).join('')}</table></div><ul class="small">${x.litn.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>` : '';
+  const lit = x.lit ? `<h2>亂撒會掉落的物品</h2><div class="tw"><table><tr><th>物品</th><th>會掉落的寶可夢</th></tr>${x.lit.map(([ii,n,ps])=>`<tr><td>${ii>=0?iLink(ii,`<span class="mini">${iImg(I[ii],32,'')}${esc(n)}</span>`):esc(n)}</td><td><div class="row">${ps.map(([j,pn])=>j>=0?`<span class="litp" data-lp="${j}">${pLink(j,`<span class="mini">${pImg(P[j],32,'')}${pNm(P[j])}</span>`)}</span>`:esc(pn)).join('')}</div></td></tr>`).join('')}</table></div><ul class="small">${x.litn.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>` : '';
   const col = x.col ? `<h2>可以交換到的物品（${x.col.length}）</h2><p class="muted small">用虹色之羽、銀色之羽，以及鑑定後的大遺失物、小遺失物交換。</p><div class="grid g-it">${x.col.map(([ii,n])=>ii>=0?iCard(ii):`<div class="card"><div class="nm">${esc(n)}</div></div>`).join('')}</div>` : '';
   $app.innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:6px"><span>${prev?`<a class="small" href="#/sp/${k-1}">← ${esc(prev.n)}</a>`:''}</span><span>${next?`<a class="small" href="#/sp/${k+1}">${esc(next.n)} →</a>`:''}</span></div>
   <div class="panel" style="display:flex;gap:14px;align-items:flex-start">${spIcoBig(x.n).replace('width:40px;height:40px','width:64px;height:64px')}<div style="flex:1">
@@ -381,6 +382,7 @@ function vSp(k){
   <div class="row" style="margin:10px 0"><a class="btn" href="#/sp">← 全部專長</a>${ps.length?`<a class="btn" href="#/pokemon?sp=${encodeURIComponent(x.n)}">在寶可夢查詢中篩選</a>`:''}</div>
   <h2>擁有「${esc(x.n)}」專長的寶可夢（${ps.length}）</h2>${ps.length?`<div class="grid g-pk">${ps.map(j=>pCard(j, P[j].sp.length>1?`<div class="chips">${P[j].sp.filter(s=>s!==x.n).map(s=>`<span class="chip gray">＋${esc(s)}</span>`).join('')}</div>`:'')).join('')}</div>`:'<p class="muted">目前沒有寶可夢資料。</p>'}
   ${lit}${col}`;
+  if(q.p!=null&&q.p!==''){ const el=$app.querySelector(`.litp[data-lp="${q.p}"]`); if(el){ el.classList.add('hl'); el.closest('tr')?.classList.add('hlrow'); setTimeout(()=>el.classList.remove('hl'),1600); requestAnimationFrame(()=>el.scrollIntoView({behavior:'smooth',block:'center'})); } }
 }
 function vFavList(){
   const rows = favSort.map(f=>`<tr><td><a href="#/fav/${f}"><b>${esc(FAV[f])}</b></a></td><td>${FAVP[f].length}</td><td>${FAVI[f].length}</td><td>${DISP[f].length?`<span class="chip no">${DISP[f].length} 隻討厭</span>`:''}</td><td><div class="row">${FAVP[f].slice(0,10).map(j=>pLink(j,pImg(P[j],32,'ico'))).join('')}${FAVP[f].length>10?'<span class="muted small">…</span>':''}</div></td></tr>`).join('');
@@ -607,7 +609,7 @@ function route(){
   else if(v==='habitat') id!=null ? vHabitat(id) : vHabitatList(q);
   else if(v==='item') id!=null ? vItem(id) : vItemList(q);
   else if(v==='fav') id!=null ? vFav(id) : vFavList();
-  else if(v==='sp') id!=null ? vSp(id) : vSpList();
+  else if(v==='sp') id!=null ? vSp(id,q) : vSpList();
   else if(v==='env') vEnv(id); else if(v==='flv') vFlv(id);
   else if(v==='food') vFood(q); else if(v==='match') vMatch(q); else if(v==='eval') vEval();
   else vHome();
