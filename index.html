@@ -57,6 +57,7 @@ th{background:var(--sand);font-size:13px;color:#5b5440}tr:hover td{background:#f
 .slot.full{border-style:solid;border-color:#bcd9c3;background:var(--panel)}
 .slot .x{position:absolute;top:4px;right:6px;border:0;background:#eee;border-radius:50%;width:22px;height:22px;cursor:pointer;font-weight:700;color:#555}
 .slot img{width:64px;height:64px;object-fit:contain}
+.picker#pick{display:grid;grid-template-columns:repeat(auto-fill,88px);gap:2px;justify-content:start}#pick .pick{width:auto;height:100%;box-sizing:border-box;justify-content:flex-start}
 .picker{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:8px;background:#fffef9}
 .pick{display:inline-flex;flex-direction:column;align-items:center;text-align:center;width:88px;padding:4px;border-radius:10px;cursor:pointer;font-size:12px;border:1px solid transparent;vertical-align:top;position:relative}
 .pick:hover{background:var(--green-l);border-color:#cfe5d3}.pick.sel{background:#fff1dc;border-color:#f3cf9c}.pick img{width:48px;height:48px;object-fit:contain}
@@ -443,6 +444,8 @@ function vFood(q){
 
 // ================= MATCH TOOL
 let MSEL = [], MOPT = {min:null, k:'', t:'', s:'', env:false, flv:false, rec:false, spv:false, sw:false};
+function eqPick(){ const g=$('#pick'); if(!g) return; g.style.gridAutoRows='auto'; const ps=[...g.querySelectorAll('.pick')]; if(!ps.length) return; const m=Math.max(...ps.map(x=>x.offsetHeight)); g.style.gridAutoRows=m+'px'; }
+window.addEventListener('resize',()=>eqPick());
 function prefSet(p){ const s = new Set(p.fv.map(f=>'f'+f)); if(MOPT.env&&p.env) s.add('e'+p.env); if(MOPT.flv&&p.flv) s.add('l'+p.flv); return s; }
 function vMatch(q){
   MSEL = (q.p||'').split(',').filter(x=>x!=='').map(Number).filter(x=>P[x]).slice(0,4);
@@ -479,6 +482,7 @@ function vMatch(q){
     let sc = {};
     if(recOn){ res.forEach(i=>sc[i]=recScore(i)); res = res.filter(i=>!MSEL.includes(i)).sort((a,b)=>sc[b]-sc[a]||a-b); res = MSEL.concat(res.filter(i=>sc[i]>0)).concat(res.filter(i=>!sc[i])); res=[...new Set(res)]; }
     $('#pick').innerHTML=res.map(i=>`<div class="pick ${MSEL.includes(i)?'sel':''}" data-i="${i}">${recOn&&!MSEL.includes(i)&&sc[i]?`<span class="rs" title="與已選寶可夢的喜好重疊數">${sc[i]}</span>`:''}${pImg(P[i],48,'')}<span class="small muted">${pNo(P[i])}</span><span>${pNm(P[i])}</span>${MOPT.spv?`<span class="psp">${P[i].sp.map(x=>`<span class="${x===sp?'hit':''}">${spIco(x)}${esc(x)}</span>`).join('')}</span>`:''}</div>`).join('')||'<p class="muted">找不到符合的寶可夢</p>';
+    eqPick();
     return res.filter(i=>!MSEL.includes(i));};
   const toggle=i=>{ MOPT.min=null; if(MSEL.includes(i)) MSEL=MSEL.filter(x=>x!==i); else if(MSEL.length<4) MSEL.push(i); else { alert('最多選 4 隻'); return; } setQ({p:MSEL.join(','), rec:MOPT.rec?1:'', spv:MOPT.spv?1:''}); renderSlots(); renderPick(); renderMatch(); };
   const renderSlots=()=>{ $('#slots').innerHTML=[0,1,2,3].map(k=>{const i=MSEL[k]; if(i==null) return `<div class="slot"><span class="muted">第 ${k+1} 隻</span><span class="small muted">從下方選擇</span></div>`;
