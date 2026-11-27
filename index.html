@@ -483,6 +483,9 @@ function vFood(q){
 let MSEL = [], MOPT = {min:null, k:'', t:'', s:'', env:false, flv:false, rec:false, spv:false, sw:false};
 function eqPick(){ const g=$('#pick'); if(!g) return; g.style.gridAutoRows='auto'; const ps=[...g.querySelectorAll('.pick')]; if(!ps.length) return; const m=Math.max(...ps.map(x=>x.offsetHeight)); g.style.gridAutoRows=m+'px'; }
 window.addEventListener('resize',()=>eqPick());
+const ENVX={'明亮':'昏暗','昏暗':'明亮','溫暖':'涼爽','涼爽':'溫暖','潮濕':'乾燥','乾燥':'潮濕'};
+// 理想環境計分：相同 +2、無衝突 0、衝突（明亮↔昏暗、溫暖↔涼爽、潮濕↔乾燥）−2
+const envPts=(a,b)=>!a||!b?0:a===b?2:ENVX[a]===b?-2:0;
 function prefSet(p){ const s = new Set(p.fv.map(f=>'f'+f)); if(MOPT.env&&p.env) s.add('e'+p.env); if(MOPT.flv&&p.flv) s.add('l'+p.flv); return s; }
 function vMatch(q){
   MSEL = (q.p||'').split(',').filter(x=>x!=='').map(Number).filter(x=>P[x]).slice(0,4);
@@ -500,7 +503,7 @@ function vMatch(q){
       <select id="msec">${secOpt('')}</select>
       <button class="btn" id="mclr">清除全部</button></div>
     <div class="bar">
-      <label class="ck"><input type="checkbox" id="oenv" ${MOPT.env?'checked':''}> 理想環境納入交集數</label>
+      <label class="ck" title="相同環境 +2、無衝突 0、衝突環境 −2（明亮↔昏暗、溫暖↔涼爽、潮濕↔乾燥）"><input type="checkbox" id="oenv" ${MOPT.env?'checked':''}> 理想環境納入交集數<span class="small muted">（相同 +2／衝突 −2）</span></label>
       <label class="ck"><input type="checkbox" id="oflv" ${MOPT.flv?'checked':''}> 口味納入交集數</label>
       <label class="ck" title="只顯示能在冒泡泡海底的城鎮下水的寶可夢（含只能水底行走）"><input type="checkbox" id="osw" ${MOPT.sw?'checked':''}> 可下水</label>
       <button class="btn tog ${MOPT.rec?'on':''}" id="brec" title="依與已選寶可夢的喜好重疊數排序候選">⭐ 推薦</button>
@@ -509,7 +512,7 @@ function vMatch(q){
     <div class="row small" id="tchips" style="margin-bottom:8px">${TN.slice(1).map((t,k)=>`<a href="javascript:void 0" data-t="${k+1}" style="text-decoration:none">${typeTag(k+1)}</a>`).join(' ')}</div>
     <div class="picker" id="pick"></div>
   </div><div id="mres"></div>`;
-  const recScore = i => { const tot = MSEL.reduce((s,k)=>{ const a=prefSet(P[k]), b=prefSet(P[i]); let c=0; b.forEach(x=>{if(a.has(x))c++;}); return s+c; },0); return tot; };
+  const recScore = i => MSEL.reduce((s,k)=>{ const a=prefSet(P[k]), b=prefSet(P[i]); let c=0; b.forEach(x=>{if(x[0]!=='e'&&a.has(x))c++;}); if(MOPT.env) c+=envPts(P[k].env,P[i].env); return s+c; },0);
   const renderPick=()=>{
     const s=$('#ms').value.trim(), t=$('#mt').value, e=$('#menv').value, fv=$('#mfv').value, fl=$('#mflv').value, sec=$('#msec').value, sp=$('#msp').value, sw=MOPT.sw?'FW':'';
     let res=P.map((p,i)=>i).filter(i=>{const p=P[i]; if(!p.fv.length) return false; if(t&&!p.t.includes(+t)) return false; if(e&&p.env!==e) return false; if(fv&&!p.fv.includes(+fv)) return false; if(fl&&p.flv!==fl) return false; if(sec&&p.s!==sec) return false; if(sp&&!p.sp.includes(sp)) return false; if(!swOk(p,sw)) return false;
@@ -517,8 +520,8 @@ function vMatch(q){
     const recOn = MOPT.rec && MSEL.length>=1;
     $('#rechint').textContent = MOPT.rec && !recOn ? '（請先選擇 1 隻以上）' : '';
     let sc = {};
-    if(recOn){ res.forEach(i=>sc[i]=recScore(i)); res = res.filter(i=>!MSEL.includes(i)).sort((a,b)=>sc[b]-sc[a]||a-b); res = MSEL.concat(res.filter(i=>sc[i]>0)).concat(res.filter(i=>!sc[i])); res=[...new Set(res)]; }
-    $('#pick').innerHTML=res.map(i=>`<div class="pick ${MSEL.includes(i)?'sel':''}" data-i="${i}">${recOn&&!MSEL.includes(i)&&sc[i]?`<span class="rs" title="與已選寶可夢的喜好重疊數">${sc[i]}</span>`:''}${pImg(P[i],48,'')}<span class="small muted">${pNo(P[i])}</span><span>${pNm(P[i])}</span>${MOPT.spv?`<span class="psp">${P[i].sp.map(x=>`<span class="${x===sp?'hit':''}">${spIco(x)}${esc(x)}</span>`).join('')}</span>`:''}</div>`).join('')||'<p class="muted">找不到符合的寶可夢</p>';
+    if(recOn){ res.forEach(i=>sc[i]=recScore(i)); res = res.filter(i=>!MSEL.includes(i)).sort((a,b)=>sc[b]-sc[a]||a-b); res=[...new Set(MSEL.concat(res))]; }
+    $('#pick').innerHTML=res.map(i=>`<div class="pick ${MSEL.includes(i)?'sel':''}" data-i="${i}">${recOn&&!MSEL.includes(i)&&sc[i]?`<span class="rs" ${sc[i]<0?'style="background:var(--red)"':''} title="與已選寶可夢的喜好分數（喜歡的東西、口味重疊各 +1${MOPT.env?'；理想環境相同 +2、衝突 −2':''}）">${sc[i]}</span>`:''}${pImg(P[i],48,'')}<span class="small muted">${pNo(P[i])}</span><span>${pNm(P[i])}</span>${MOPT.spv?`<span class="psp">${P[i].sp.map(x=>`<span class="${x===sp?'hit':''}">${spIco(x)}${esc(x)}</span>`).join('')}</span>`:''}</div>`).join('')||'<p class="muted">找不到符合的寶可夢</p>';
     eqPick();
     return res.filter(i=>!MSEL.includes(i));};
   const toggle=i=>{ MOPT.min=null; if(MSEL.includes(i)) MSEL=MSEL.filter(x=>x!==i); else if(MSEL.length<4) MSEL.push(i); else { alert('最多選 4 隻'); return; } setQ({p:MSEL.join(','), rec:MOPT.rec?1:'', spv:MOPT.spv?1:''}); renderSlots(); renderPick(); renderMatch(); };
@@ -551,9 +554,11 @@ function renderMatch(){
   const itemKeys = it => { const s=new Set(it.fv.map(f=>'f'+f)); if(MOPT.env) (it.env||[]).forEach(e=>s.add('e'+e)); if(MOPT.flv&&it.flv) s.add('l'+it.flv); return s; };
   const fenv=($('#menv')||{}).value||'';
   const scored=[];
-  I.forEach((it,i)=>{ if(fenv&&(it.env||[]).length&&!it.env.includes(fenv)) return; const ks=itemKeys(it); if(!ks.size) return; const who=[]; const cats=new Set(); let hits=0; const dis=[];
-    sets.forEach((ps,k)=>{let c=0; ks.forEach(x=>{if(ps.has(x)){c++;cats.add(x);}}); if(c){who.push(k); hits+=c;} (sel[k].dis||[]).forEach(f=>{ if(it.fv.includes(f)) dis.push([k,f]); }); });
-    if(who.length>=2) scored.push({i,who,hits,cats:[...cats],dis}); });
+  I.forEach((it,i)=>{ if(fenv&&(it.env||[]).length&&!it.env.includes(fenv)) return; const ks=itemKeys(it); if(!ks.size) return; const who=[]; const cats=new Set(); let hits=0; const dis=[]; const ecf=[];
+    sets.forEach((ps,k)=>{let c=0, liked=false; ks.forEach(x=>{ if(x[0]==='e') return; if(ps.has(x)){c++;liked=true;cats.add(x);} });
+      if(MOPT.env&&sel[k].env){ (it.env||[]).forEach(e=>{ const v=envPts(sel[k].env,e); if(v>0){c+=v;liked=true;cats.add('e'+e);} else if(v<0){c+=v;ecf.push([k,e]);} }); }
+      if(liked) who.push(k); hits+=c; (sel[k].dis||[]).forEach(f=>{ if(it.fv.includes(f)) dis.push([k,f]); }); });
+    if(who.length>=2) scored.push({i,who,hits,cats:[...cats],dis,ecf}); });
   scored.sort((a,b)=>b.who.length-a.who.length||b.hits-a.hits||a.dis.length-b.dis.length||a.i-b.i);
   const MCAT = ICAT.filter(k=>k!=='材料'); MCAT.splice(MCAT.length-1,0,'材料');
   const cats = MCAT.filter(k=>scored.some(s=>I[s.i].k===k));
@@ -578,8 +583,8 @@ function renderMatch(){
     const by={}; list.forEach(s=>(by[I[s.i].k] ||= []).push(s));
     $('#mlist').innerHTML = MCAT.filter(k=>by[k]).map(k=>`<h3>${k}（${by[k].length}）</h3><div class="mres">${by[k].map(s=>{const it=I[s.i]; const ks=itemKeys(it);
       return `<div class="mitem">${iLink(s.i, iImg(it,48))}<div style="flex:1;min-width:0"><div class="row"><span class="score ${s.who.length===n?'full':''}">${s.who.length}/${n}</span>${iLink(s.i,`<span class="nm">${esc(it.n)}</span>`)}${it.t?`<span class="small muted">${esc(it.t)}</span>`:''}</div>
-      <div class="chips l" style="margin-top:4px">${[...ks].map(x=>`<span class="chip ${s.cats.includes(x)?'hit':'gray'}">${esc(keyName(x))}</span>`).join('')}</div>
-      <div class="small muted" style="margin-top:3px">${s.who.map(k=>esc(sel[k].n)).join('、')} 喜歡</div>${s.dis.length?`<div class="small" style="color:var(--red)">${s.dis.map(([k,f])=>`${esc(sel[k].n)} 討厭「${esc(FAV[f])}」`).join('；')}</div>`:''}</div></div>`}).join('')}</div>`).join('') || '<p class="muted">沒有符合條件的道具</p>'; };
+      <div class="chips l" style="margin-top:4px">${[...ks].map(x=>`<span class="chip ${s.cats.includes(x)?'hit':s.ecf.some(([k,e])=>'e'+e===x)?'no':'gray'}">${esc(keyName(x))}</span>`).join('')}${MOPT.env?`<span class="small muted" title="喜歡的東西、口味重疊各 +1；理想環境相同 +2、衝突 −2">分數 ${s.hits}</span>`:''}</div>
+      <div class="small muted" style="margin-top:3px">${s.who.map(k=>esc(sel[k].n)).join('、')} 喜歡</div>${s.dis.length?`<div class="small" style="color:var(--red)">${s.dis.map(([k,f])=>`${esc(sel[k].n)} 討厭「${esc(FAV[f])}」`).join('；')}</div>`:''}${s.ecf.length?`<div class="small" style="color:var(--red)">${s.ecf.map(([k,e])=>`${esc(sel[k].n)} 的理想環境「${esc(sel[k].env)}」與「${esc(e)}」衝突（−2）`).join('；')}</div>`:''}</div></div>`}).join('')}</div>`).join('') || '<p class="muted">沒有符合條件的道具</p>'; };
   $('#mmin').addEventListener('input',e=>{MOPT.min=+e.target.value; draw();});
   $('#mfs').addEventListener('input',e=>{MOPT.s=e.target.value.trim(); draw();});
   $('#mnodis').addEventListener('input',draw);
